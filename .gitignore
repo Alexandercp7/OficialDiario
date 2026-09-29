@@ -1,0 +1,17 @@
+# Variables de entorno y datos sensibles
+.env
+
+# Base de datos local
+lexmonitor.db
+*.db-journal
+
+# Archivos de caché de Python
+__pycache__/
+*.py[cod]
+
+# Dependencias de NodeJS
+node_modules/
+
+# Archivos PDF temporales de descarga
+*.pdf
+temp_*.pdf

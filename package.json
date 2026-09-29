@@ -1,0 +1,18 @@
+{
+  "name": "diario-lexmonitor",
+  "version": "1.0.0",
+  "description": "Sistema de Vigilancia Jurídica y Notificaciones del Diario Oficial de Yucatán",
+  "scripts": {
+    "build": "esbuild src/index.jsx --bundle --minify --outfile=public/app.js --define:process.env.NODE_ENV=\"'production'\"",
+    "watch": "esbuild src/index.jsx --bundle --outfile=public/app.js --define:process.env.NODE_ENV=\"'development'\" --watch"
+  },
+  "dependencies": {
+    "lucide-react": "^1.48.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
