@@ -21,6 +21,14 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 import database
 
+# Forzar zona horaria a nivel de sistema operativo en Linux/Render
+try:
+    os.environ['TZ'] = 'America/Merida'
+    if hasattr(time, 'tzset'):
+        time.tzset()
+except Exception:
+    pass
+
 # Forzar salida en UTF-8 para consola en Windows
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -372,10 +380,18 @@ def ejecutar_cotejo_general(fecha=None, triggered_by_user_id=None):
     Descarga el PDF, busca los criterios de todos los usuarios activos,
     registra los resultados en SQLite y envía alertas a quienes tengan coincidencias.
     """
+    hoy_merida = database.fecha_hoy_merida()
     if not fecha or str(fecha).strip().lower() in ("", "today", "hoy", "none"):
-        fecha = database.fecha_hoy_merida()
+        fecha = hoy_merida
     else:
         fecha = str(fecha).strip()
+
+    # Protección estricta contra desfase horario de servidores:
+    # La fecha jamás puede ser posterior a hoy en México (Mérida).
+    # Si por desfase de servidor o cron externo llega una fecha adelantada, se fija a hoy en Mérida.
+    if fecha > hoy_merida:
+        print(f"[Cotejo] Fecha solicitada '{fecha}' es posterior a hoy en Mérida ({hoy_merida}). Ajustando automáticamente a la fecha mexicana de hoy: {hoy_merida}")
+        fecha = hoy_merida
 
     archivo_local = os.path.join(BASE_DIR, f"{fecha}_1.pdf")
     temp_archivo = False

@@ -3,10 +3,19 @@ import sys
 import secrets
 import hashlib
 import hmac
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Tuple
 from contextlib import contextmanager
 from dotenv import load_dotenv
+
+# Forzar zona horaria a nivel de sistema operativo en Linux/Render
+try:
+    os.environ['TZ'] = 'America/Merida'
+    if hasattr(time, 'tzset'):
+        time.tzset()
+except Exception:
+    pass
 
 # Zona horaria oficial de Mérida, Yucatán (UTC-6 todo el año sin horario de verano)
 TZ_MERIDA = timezone(timedelta(hours=-6))
