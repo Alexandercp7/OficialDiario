@@ -777,6 +777,22 @@ class DiarioHandler(BaseHTTPRequestHandler):
                 return
             parsed_qs = urllib.parse.parse_qs(parsed.query)
             fecha = parsed_qs.get("date", [None])[0]
+            is_async = parsed_qs.get("async", ["false"])[0].lower() in ("true", "1", "yes")
+
+            if is_async:
+                # Responder inmediatamente en milisegundos y ejecutar la descarga y cotejo en segundo plano
+                threading.Thread(
+                    target=ejecutar_cotejo_general,
+                    kwargs={"fecha": fecha, "triggered_by_user_id": None},
+                    daemon=True
+                ).start()
+                self.responder_json(200, {
+                    "success": True,
+                    "message": "Cotejo programado iniciado en segundo plano exitosamente.",
+                    "mode": "async"
+                })
+                return
+
             resultado = ejecutar_cotejo_general(fecha=fecha, triggered_by_user_id=None)
             self.responder_json(200 if resultado.get("success") else 400, resultado)
             return
@@ -928,10 +944,25 @@ class DiarioHandler(BaseHTTPRequestHandler):
             if not verificar_cron_secret(self):
                 self.responder_json(401, {"error": "No autorizado. Token de cron inválido o ausente."})
                 return
+            parsed_qs = urllib.parse.parse_qs(parsed.query)
             fecha = body.get("date")
             if not fecha:
-                parsed_qs = urllib.parse.parse_qs(parsed.query)
                 fecha = parsed_qs.get("date", [None])[0]
+            is_async = body.get("async", False) or parsed_qs.get("async", ["false"])[0].lower() in ("true", "1", "yes")
+
+            if is_async:
+                threading.Thread(
+                    target=ejecutar_cotejo_general,
+                    kwargs={"fecha": fecha, "triggered_by_user_id": None},
+                    daemon=True
+                ).start()
+                self.responder_json(200, {
+                    "success": True,
+                    "message": "Cotejo programado iniciado en segundo plano exitosamente.",
+                    "mode": "async"
+                })
+                return
+
             resultado = ejecutar_cotejo_general(fecha=fecha, triggered_by_user_id=None)
             self.responder_json(200 if resultado.get("success") else 400, resultado)
             return
