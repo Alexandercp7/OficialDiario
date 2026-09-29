@@ -16,7 +16,17 @@ export default function CotejoView() {
   const { authFetch } = useAuth();
   const { appData, refreshData, selectedReport, setSelectedReport } = useData();
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Obtener fecha actual en zona horaria oficial de Mérida, Yucatán (UTC-6)
+  const getTodayMerida = () => {
+    try {
+      return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Merida' });
+    } catch (e) {
+      const d = new Date(Date.now() - 6 * 3600 * 1000);
+      return d.toISOString().split('T')[0];
+    }
+  };
+
+  const todayStr = getTodayMerida();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -62,8 +72,8 @@ export default function CotejoView() {
 
       setTimeout(() => {
         setIsScanning(false);
-        if (data.estado === 'error') {
-          setErrorMessage(data.mensaje || 'Error al descargar o procesar la edición del Diario.');
+        if (data.estado === 'error' || data.estado === 'no_disponible') {
+          setErrorMessage(data.mensaje || 'La edición para esta fecha aún no está publicada o disponible.');
         } else {
           setScanResult(data);
         }

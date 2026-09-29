@@ -15,3 +15,6 @@ node_modules/
 # Archivos PDF temporales de descarga
 *.pdf
 temp_*.pdf
+
+# Scripts temporales de prueba
+scratch/

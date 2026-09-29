@@ -18,7 +18,8 @@ export default function LandingPage() {
   const todayFormatted = new Date().toLocaleDateString('es-MX', {
     day: 'numeric',
     month: 'short',
-    year: 'numeric'
+    year: 'numeric',
+    timeZone: 'America/Merida'
   });
 
   return (

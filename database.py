@@ -3,10 +3,41 @@ import sys
 import secrets
 import hashlib
 import hmac
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Tuple
 from contextlib import contextmanager
 from dotenv import load_dotenv
+
+# Zona horaria oficial de Mérida, Yucatán (UTC-6 todo el año sin horario de verano)
+TZ_MERIDA = timezone(timedelta(hours=-6))
+
+def ahora_merida() -> datetime:
+    """Retorna la fecha y hora actual en la zona horaria de Mérida, Yucatán (UTC-6)."""
+    return datetime.now(timezone.utc).astimezone(TZ_MERIDA)
+
+def fecha_hoy_merida() -> str:
+    """Retorna la fecha actual en Mérida en formato YYYY-MM-DD."""
+    return ahora_merida().strftime("%Y-%m-%d")
+
+def format_merida_dt(dt: Optional[datetime]) -> Optional[str]:
+    """
+    Convierte un datetime (UTC o naive) a string 'YYYY-MM-DD HH:MM:SS'
+    en la hora local oficial de Mérida, Yucatán (UTC-6).
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(TZ_MERIDA).strftime("%Y-%m-%d %H:%M:%S")
+
+def format_merida_time(dt: Optional[datetime]) -> Optional[str]:
+    """Retorna la hora 'HH:MM:SS' en horario de Mérida, Yucatán (UTC-6)."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(TZ_MERIDA).strftime("%H:%M:%S")
+
 
 from sqlalchemy import (
     create_engine, Column, Integer, String, Text, Boolean,
@@ -104,7 +135,7 @@ class User(Base):
             "telegram_chat_id": self.telegram_chat_id,
             "telegram_username": self.telegram_username,
             "link_code": self.link_code,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None
+            "created_at": format_merida_dt(self.created_at)
         }
 
 
@@ -125,7 +156,7 @@ class Criterion(Base):
             "user_id": self.user_id,
             "tipo": self.tipo,
             "valor": self.valor,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None
+            "created_at": format_merida_dt(self.created_at)
         }
 
 
@@ -188,7 +219,8 @@ class Scan(Base):
         return {
             "id": self.id,
             "fecha": self.fecha,
-            "timestamp": self.timestamp.strftime("%Y-%m-%d %H:%M:%S") if self.timestamp else None,
+            "timestamp": format_merida_dt(self.timestamp),
+            "hora": format_merida_time(self.timestamp),
             "estado": self.estado,
             "mensaje": self.mensaje
         }
@@ -218,7 +250,7 @@ class UserMatch(Base):
             "pagina": self.pagina,
             "contexto": self.contexto,
             "notificado": self.notificado,
-            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None
+            "created_at": format_merida_dt(self.created_at)
         }
 
 
@@ -239,7 +271,7 @@ class TelegramSubscriber(Base):
             "username": self.username or "",
             "email": self.email or "",
             "user_id": self.user_id,
-            "subscribed_at": self.subscribed_at.strftime("%Y-%m-%d %H:%M:%S") if self.subscribed_at else None
+            "subscribed_at": format_merida_dt(self.subscribed_at)
         }
 
 
@@ -624,7 +656,8 @@ def get_user_history(user_id: int, limit: int = 30) -> List[dict]:
             history_list.append({
                 "id": s.id,
                 "fecha": s.fecha,
-                "timestamp": s.timestamp.strftime("%Y-%m-%d %H:%M:%S") if s.timestamp else None,
+                "timestamp": format_merida_dt(s.timestamp),
+                "hora": format_merida_time(s.timestamp),
                 "estado": s.estado,
                 "mensaje": s.mensaje,
                 "total_coincidencias": len(u_matches),
