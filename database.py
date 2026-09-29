@@ -24,7 +24,25 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 DB_FILE = os.path.join(BASE_DIR, "lexmonitor.db")
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DB_FILE}")
+
+raw_db_url = os.getenv("DATABASE_URL", "").strip()
+
+# Eliminar prefijo accidental si pegaron la línea entera "DATABASE_URL=..."
+if raw_db_url.startswith("DATABASE_URL="):
+    raw_db_url = raw_db_url.split("DATABASE_URL=", 1)[1].strip()
+
+# Eliminar comillas envolventes si las pegaron con comillas
+if (raw_db_url.startswith('"') and raw_db_url.endswith('"')) or (raw_db_url.startswith("'") and raw_db_url.endswith("'")):
+    raw_db_url = raw_db_url[1:-1].strip()
+
+# Si copiaron el comando "psql <url>" en vez de solo la URL
+if raw_db_url.startswith("psql "):
+    raw_db_url = raw_db_url.replace("psql ", "", 1).strip().strip("'").strip('"')
+
+if not raw_db_url:
+    DATABASE_URL = f"sqlite:///{DB_FILE}"
+else:
+    DATABASE_URL = raw_db_url
 
 # Render provee URLs que comienzan con postgres://, SQLAlchemy 2.0 requiere postgresql://
 if DATABASE_URL.startswith("postgres://"):
