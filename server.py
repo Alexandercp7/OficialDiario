@@ -119,7 +119,15 @@ def enviar_notificacion_email(config_email, asunto, mensaje_texto, mensaje_html)
         # 1. Si existe RESEND_API_KEY configurada, enviar vía Resend HTTP API (ideal para Render en la nube)
         resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
         if resend_api_key:
-            from_email = os.getenv("RESEND_FROM_EMAIL", "").strip() or "LexMonitor Yucatán <onboarding@resend.dev>"
+            raw_from = os.getenv("RESEND_FROM_EMAIL", "").strip().strip('"').strip("'")
+            if not raw_from:
+                from_email = "LexMonitor <onboarding@resend.dev>"
+            else:
+                # Resend no permite caracteres no ASCII (tildes/ñ) en el campo 'from'
+                for orig, dest in [("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ñ", "n"),
+                                  ("Á", "A"), ("É", "E"), ("Í", "I"), ("Ó", "O"), ("Ú", "U"), ("Ñ", "N")]:
+                    raw_from = raw_from.replace(orig, dest)
+                from_email = raw_from
             payload = {
                 "from": from_email,
                 "to": recipients,
