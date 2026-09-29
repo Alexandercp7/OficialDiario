@@ -116,7 +116,36 @@ def enviar_notificacion_email(config_email, asunto, mensaje_texto, mensaje_html)
         if not recipients:
             return False, "No se especificó un correo de destinatario válido."
 
-        # 1. Si existe RESEND_API_KEY configurada, enviar vía Resend HTTP API (ideal para Render en la nube)
+        # 1. Si existe BREVO_API_KEY configurada, enviar vía Brevo REST API (permite enviar a cualquier persona con Gmail verificado)
+        brevo_api_key = os.getenv("BREVO_API_KEY", "").strip()
+        if brevo_api_key:
+            sys_smtp = database.get_system_smtp_config()
+            sender_email = (os.getenv("BREVO_SENDER_EMAIL") or sys_smtp.get("sender_email") or "alexitoelegante@gmail.com").strip()
+            sender_name = os.getenv("BREVO_SENDER_NAME", "LexMonitor Yucatán").strip()
+            payload = {
+                "sender": {"name": sender_name, "email": sender_email},
+                "to": [{"email": r} for r in recipients],
+                "subject": asunto,
+                "htmlContent": mensaje_html,
+                "textContent": mensaje_texto
+            }
+            headers = {
+                "accept": "application/json",
+                "api-key": brevo_api_key,
+                "content-type": "application/json"
+            }
+            resp = requests.post("https://api.brevo.com/v3/smtp/email", json=payload, headers=headers, timeout=15)
+            if resp.status_code in (200, 201):
+                return True, f"Correo enviado exitosamente vía Brevo a {len(recipients)} destinatario(s)."
+            else:
+                try:
+                    err_json = resp.json()
+                    err_msg = err_json.get("message", resp.text)
+                except Exception:
+                    err_msg = resp.text
+                return False, f"Error en Brevo API ({resp.status_code}): {err_msg} (Remitente: '{sender_email}')"
+
+        # 2. Si existe RESEND_API_KEY configurada, enviar vía Resend HTTP API
         resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
         if resend_api_key:
             raw_from = os.getenv("RESEND_FROM_EMAIL", "").strip().strip('"').strip("'")
@@ -157,7 +186,7 @@ def enviar_notificacion_email(config_email, asunto, mensaje_texto, mensaje_html)
                     err_msg = resp.text
                 return False, f"Error en Resend API ({resp.status_code}): {err_msg} (Remitente: '{from_email}')"
 
-        # 2. Si no hay Resend API Key, intentar mediante SMTP tradicional
+        # 3. Si no hay Brevo ni Resend, intentar mediante SMTP tradicional
         sys_smtp = database.get_system_smtp_config()
         sender = (config_email.get("sender_email") or sys_smtp.get("sender_email") or "").strip()
         password = (config_email.get("sender_password") or sys_smtp.get("sender_password") or "").replace(" ", "").strip()
