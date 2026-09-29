@@ -120,14 +120,21 @@ def enviar_notificacion_email(config_email, asunto, mensaje_texto, mensaje_html)
         resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
         if resend_api_key:
             raw_from = os.getenv("RESEND_FROM_EMAIL", "").strip().strip('"').strip("'")
-            if not raw_from:
-                from_email = "LexMonitor <onboarding@resend.dev>"
+            if not raw_from or "@" not in raw_from:
+                from_email = "onboarding@resend.dev"
+            elif "<" in raw_from and ">" in raw_from:
+                name_part, email_part = raw_from.split("<", 1)
+                email_clean = email_part.replace(">", "").strip()
+                name_clean = "".join(c for c in name_part if c.isascii() and (c.isalnum() or c in " .-_")).strip()
+                from_email = f"{name_clean} <{email_clean}>" if name_clean else email_clean
             else:
-                # Resend no permite caracteres no ASCII (tildes/ñ) en el campo 'from'
-                for orig, dest in [("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u"), ("ñ", "n"),
-                                  ("Á", "A"), ("É", "E"), ("Í", "I"), ("Ó", "O"), ("Ú", "U"), ("Ñ", "N")]:
-                    raw_from = raw_from.replace(orig, dest)
                 from_email = raw_from
+
+            # Resend no permite enviar desde dominios gratuitos no verificados (como @gmail.com)
+            freemails = ["@gmail.", "@yahoo.", "@hotmail.", "@outlook.", "@live.", "@icloud."]
+            if any(fm in from_email.lower() for fm in freemails):
+                from_email = "onboarding@resend.dev"
+
             payload = {
                 "from": from_email,
                 "to": recipients,
@@ -148,7 +155,7 @@ def enviar_notificacion_email(config_email, asunto, mensaje_texto, mensaje_html)
                     err_msg = err_json.get("message", resp.text)
                 except Exception:
                     err_msg = resp.text
-                return False, f"Error en Resend API ({resp.status_code}): {err_msg}"
+                return False, f"Error en Resend API ({resp.status_code}): {err_msg} (Remitente: '{from_email}')"
 
         # 2. Si no hay Resend API Key, intentar mediante SMTP tradicional
         sys_smtp = database.get_system_smtp_config()
