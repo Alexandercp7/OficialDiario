@@ -106,13 +106,46 @@ def buscar_terminos_en_pdf(ruta_pdf, keywords):
 # ==================== NOTIFICACIONES ====================
 
 def enviar_notificacion_email(config_email, asunto, mensaje_texto, mensaje_html):
-    """Envía un correo mediante SMTP oficial del sistema (Gmail con SSL)."""
+    """Envía un correo mediante Resend API (HTTPS) o SMTP oficial del sistema."""
     try:
-        sys_smtp = database.get_system_smtp_config()
+        recipient_raw = (config_email.get("recipient_email") or "").strip()
+        if not recipient_raw:
+            return False, "No se especificó un correo de destinatario válido."
 
+        recipients = [r.strip() for r in recipient_raw.replace(";", ",").split(",") if r.strip()]
+        if not recipients:
+            return False, "No se especificó un correo de destinatario válido."
+
+        # 1. Si existe RESEND_API_KEY configurada, enviar vía Resend HTTP API (ideal para Render en la nube)
+        resend_api_key = os.getenv("RESEND_API_KEY", "").strip()
+        if resend_api_key:
+            from_email = os.getenv("RESEND_FROM_EMAIL", "").strip() or "LexMonitor Yucatán <onboarding@resend.dev>"
+            payload = {
+                "from": from_email,
+                "to": recipients,
+                "subject": asunto,
+                "text": mensaje_texto,
+                "html": mensaje_html
+            }
+            headers = {
+                "Authorization": f"Bearer {resend_api_key}",
+                "Content-Type": "application/json"
+            }
+            resp = requests.post("https://api.resend.com/emails", json=payload, headers=headers, timeout=15)
+            if resp.status_code in (200, 201):
+                return True, f"Correo enviado exitosamente vía Resend a {len(recipients)} destinatario(s)."
+            else:
+                try:
+                    err_json = resp.json()
+                    err_msg = err_json.get("message", resp.text)
+                except Exception:
+                    err_msg = resp.text
+                return False, f"Error en Resend API ({resp.status_code}): {err_msg}"
+
+        # 2. Si no hay Resend API Key, intentar mediante SMTP tradicional
+        sys_smtp = database.get_system_smtp_config()
         sender = (config_email.get("sender_email") or sys_smtp.get("sender_email") or "").strip()
         password = (config_email.get("sender_password") or sys_smtp.get("sender_password") or "").replace(" ", "").strip()
-        recipient_raw = (config_email.get("recipient_email") or "").strip()
         host = (config_email.get("smtp_host") or sys_smtp.get("smtp_host") or "smtp.gmail.com").strip()
         port = int(config_email.get("smtp_port") or sys_smtp.get("smtp_port") or 465)
         use_ssl = config_email.get("use_ssl")
@@ -120,13 +153,7 @@ def enviar_notificacion_email(config_email, asunto, mensaje_texto, mensaje_html)
             use_ssl = sys_smtp.get("use_ssl", True)
 
         if not sender or not password:
-            return False, "Faltan credenciales del remitente oficial del sistema."
-        if not recipient_raw:
-            return False, "No se especificó un correo de destinatario válido."
-
-        recipients = [r.strip() for r in recipient_raw.replace(";", ",").split(",") if r.strip()]
-        if not recipients:
-            return False, "No se especificó un correo de destinatario válido."
+            return False, "Faltan credenciales de correo (configura RESEND_API_KEY en variables de entorno o credenciales SMTP)."
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = asunto
@@ -914,6 +941,7 @@ class DiarioHandler(BaseHTTPRequestHandler):
             if not email_cfg.get("recipient_email"):
                 email_cfg["recipient_email"] = user["email"]
 
+            sender_display = os.getenv("RESEND_FROM_EMAIL") or database.get_system_smtp_config().get('sender_email') or "LexMonitor HTTPS Gateway"
             if canal == "email":
                 ok, msg = enviar_notificacion_email(
                     email_cfg,
@@ -926,7 +954,7 @@ class DiarioHandler(BaseHTTPRequestHandler):
                         <p style="color:#334155;font-size:14px;line-height:1.5;">Tu canal de correo está listo y activo para recibir avisos de tus expedientes monitoreados en el Diario Oficial de Yucatán.</p>
                         <div style="margin-top:16px;padding:12px;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;font-size:13px;color:#475569;">
                             <strong>Destinatario:</strong> {escape_tg_html(email_cfg.get('recipient_email'))}<br>
-                            <strong>Servidor Remitente:</strong> LexMonitor Yucatán Oficial ({escape_tg_html(database.get_system_smtp_config().get('sender_email'))})
+                            <strong>Servidor Remitente:</strong> {escape_tg_html(sender_display)}
                         </div>
                     </div>"""
                 )
