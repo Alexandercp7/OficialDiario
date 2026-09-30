@@ -54,7 +54,7 @@ export default function AuthPage() {
       }
 
       login(data.user, data.token);
-      const destination = location.state?.from?.pathname || '/dashboard/criterios';
+      const destination = location.state?.from?.pathname || '/dashboard/consulta';
       navigate(destination, { replace: true });
     } catch (err) {
       setErrorMessage(err.message);

@@ -35,24 +35,14 @@ export default function MobileHeader() {
       {/* Barra de Navegación Móvil */}
       <div className="md:hidden bg-slate-900/90 border-b border-slate-800 px-2 py-1.5 flex gap-1 overflow-x-auto shrink-0 sticky top-16 z-30">
         <NavLink
-          to="/dashboard/criterios"
+          to="/dashboard/consulta"
           className={({ isActive }) =>
             `px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
               isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
             }`
           }
         >
-          Criterios ({criteriaCount})
-        </NavLink>
-        <NavLink
-          to="/dashboard/cotejo"
-          className={({ isActive }) =>
-            `px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-              isActive ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
-            }`
-          }
-        >
-          Cotejo
+          Consulta ({criteriaCount})
         </NavLink>
         <NavLink
           to="/dashboard/historial"

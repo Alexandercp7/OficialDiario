@@ -9,8 +9,7 @@ import AuthPage from '../pages/AuthPage';
 import DashboardLayout from '../pages/DashboardLayout';
 
 // Vistas del Dashboard
-import CriteriosView from '../pages/dashboard/CriteriosView';
-import CotejoView from '../pages/dashboard/CotejoView';
+import ConsultaView from '../pages/dashboard/ConsultaView';
 import HistorialView from '../pages/dashboard/HistorialView';
 import ConfiguracionView from '../pages/dashboard/ConfiguracionView';
 
@@ -18,7 +17,7 @@ import ConfiguracionView from '../pages/dashboard/ConfiguracionView';
 function AuthGuard({ children }) {
   const { isAuthenticated } = useAuth();
   if (isAuthenticated) {
-    return <Navigate to="/dashboard/criterios" replace />;
+    return <Navigate to="/dashboard/consulta" replace />;
   }
   return children;
 }
@@ -34,7 +33,7 @@ export default function AppRoutes() {
           path="/"
           element={
             isAuthenticated ? (
-              <Navigate to="/dashboard/criterios" replace />
+              <Navigate to="/dashboard/consulta" replace />
             ) : (
               <LandingPage />
             )
@@ -64,10 +63,12 @@ export default function AppRoutes() {
           }
         >
           {/* Redirección por defecto */}
-          <Route index element={<Navigate to="criterios" replace />} />
+          <Route index element={<Navigate to="consulta" replace />} />
           
-          <Route path="criterios" element={<CriteriosView />} />
-          <Route path="cotejo" element={<CotejoView />} />
+          <Route path="consulta" element={<ConsultaView />} />
+          {/* Compatibilidad hacia atrás */}
+          <Route path="criterios" element={<Navigate to="/dashboard/consulta" replace />} />
+          <Route path="cotejo" element={<Navigate to="/dashboard/consulta" replace />} />
           <Route path="historial" element={<HistorialView />} />
           <Route path="configuracion" element={<ConfiguracionView />} />
         </Route>

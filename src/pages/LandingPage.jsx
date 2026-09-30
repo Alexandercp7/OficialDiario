@@ -9,7 +9,7 @@ export default function LandingPage() {
 
   const handleAccess = () => {
     if (isAuthenticated) {
-      navigate('/dashboard/criterios');
+      navigate('/dashboard/consulta');
     } else {
       navigate('/auth');
     }

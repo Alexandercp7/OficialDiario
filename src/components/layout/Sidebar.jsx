@@ -44,15 +44,10 @@ export default function Sidebar() {
       {/* Menú de Navegación */}
       <nav className="flex-1 py-6 px-3 space-y-1.5">
         <NavItem
-          to="/dashboard/criterios"
+          to="/dashboard/consulta"
           icon={<Search />}
-          label="Gestión de Criterios"
+          label="Consulta Inmediata"
           badge={appData?.criteria?.length ?? appData?.keywords?.length}
-        />
-        <NavItem
-          to="/dashboard/cotejo"
-          icon={<FileSearch />}
-          label="Cotejo Automatizado"
         />
         <NavItem
           to="/dashboard/historial"

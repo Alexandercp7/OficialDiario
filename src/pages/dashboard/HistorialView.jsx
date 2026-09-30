@@ -11,7 +11,7 @@ export default function HistorialView() {
 
   const handleViewReport = (item) => {
     setSelectedReport(item);
-    navigate('/dashboard/cotejo');
+    navigate('/dashboard/consulta');
   };
 
   return (
@@ -121,7 +121,7 @@ export default function HistorialView() {
               {history.length === 0 && (
                 <tr>
                   <td colSpan="5" className="px-6 py-10 text-center text-slate-400 text-sm">
-                    Aún no se han ejecutado escaneos. Realiza uno en la pestaña Cotejo Automatizado.
+                    Aún no se han ejecutado escaneos. Realiza uno en la pestaña Consulta Inmediata.
                   </td>
                 </tr>
               )}
@@ -205,7 +205,7 @@ export default function HistorialView() {
                   </p>
                 ) : (
                   <p className="leading-relaxed">
-                    Ocurrió una interrupción durante la descarga o análisis del documento oficial. Puedes reintentar la consulta en la pestaña <strong>Cotejo Diario</strong>.
+                    Ocurrió una interrupción durante la descarga o análisis del documento oficial. Puedes reintentar la consulta en la pestaña <strong>Consulta Inmediata</strong>.
                   </p>
                 )}
               </div>
