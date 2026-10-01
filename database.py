@@ -50,7 +50,7 @@ def format_merida_time(dt: Optional[datetime]) -> Optional[str]:
 
 from sqlalchemy import (
     create_engine, Column, Integer, String, Text, Boolean,
-    DateTime, ForeignKey, select, update, delete
+    DateTime, ForeignKey, select, update, delete, text as sa_text
 )
 from sqlalchemy.orm import (
     declarative_base, relationship, sessionmaker, Session
@@ -154,6 +154,7 @@ class Criterion(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     tipo = Column(String(32), default="Expediente", nullable=False)
+    juzgado = Column(String(256), default="Todos", nullable=True)
     valor = Column(String(256), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -164,6 +165,7 @@ class Criterion(Base):
             "id": self.id,
             "user_id": self.user_id,
             "tipo": self.tipo,
+            "juzgado": self.juzgado or "Todos",
             "valor": self.valor,
             "created_at": format_merida_dt(self.created_at)
         }
@@ -243,6 +245,7 @@ class UserMatch(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     criterion_id = Column(Integer, ForeignKey("criteria.id", ondelete="SET NULL"), nullable=True)
     termino = Column(String(256), nullable=False)
+    juzgado = Column(String(256), nullable=True)
     pagina = Column(Integer, nullable=False)
     contexto = Column(Text, nullable=False)
     notificado = Column(Boolean, default=False)
@@ -256,6 +259,7 @@ class UserMatch(Base):
             "id": self.id,
             "scan_id": self.scan_id,
             "termino": self.termino,
+            "juzgado": self.juzgado or "",
             "pagina": self.pagina,
             "contexto": self.contexto,
             "notificado": self.notificado,
@@ -430,8 +434,9 @@ def get_user_criteria(user_id: int) -> List[dict]:
         ).scalars().all()
         return [r.to_dict() for r in rows]
 
-def add_user_criterion(user_id: int, tipo: str, valor: str) -> Tuple[Optional[dict], Optional[str]]:
+def add_user_criterion(user_id: int, tipo: str, valor: str, juzgado: str = "Todos") -> Tuple[Optional[dict], Optional[str]]:
     val_clean = valor.strip()
+    juzgado_clean = (juzgado or "Todos").strip()
     if not val_clean:
         return None, "El valor del criterio no puede estar vacío."
 
@@ -439,7 +444,8 @@ def add_user_criterion(user_id: int, tipo: str, valor: str) -> Tuple[Optional[di
         existing = session.execute(
             select(Criterion).where(
                 Criterion.user_id == user_id,
-                Criterion.valor == val_clean
+                Criterion.valor == val_clean,
+                Criterion.juzgado == juzgado_clean
             )
         ).scalar_one_or_none()
 
@@ -448,21 +454,30 @@ def add_user_criterion(user_id: int, tipo: str, valor: str) -> Tuple[Optional[di
 
         c = Criterion(
             user_id=user_id,
-            tipo=tipo if tipo in ("Expediente", "Nombre", "Empresa") else "Expediente",
+            tipo=tipo if tipo in ("Expediente", "Nombre", "Empresa", "Frase") else ("Expediente" if "/" in val_clean else "Nombre / Frase"),
+            juzgado=juzgado_clean,
             valor=val_clean
         )
         session.add(c)
         session.flush()
         return c.to_dict(), None
 
-def delete_user_criterion(user_id: int, valor: str) -> bool:
+def delete_user_criterion(user_id: int, valor: str = "", criterion_id: Optional[int] = None) -> bool:
     with get_session() as session:
-        session.execute(
-            delete(Criterion).where(
-                Criterion.user_id == user_id,
-                Criterion.valor == valor.strip()
+        if criterion_id is not None:
+            session.execute(
+                delete(Criterion).where(
+                    Criterion.user_id == user_id,
+                    Criterion.id == int(criterion_id)
+                )
             )
-        )
+        elif valor:
+            session.execute(
+                delete(Criterion).where(
+                    Criterion.user_id == user_id,
+                    Criterion.valor == valor.strip()
+                )
+            )
         return True
 
 
@@ -699,6 +714,7 @@ def record_scan_and_user_matches(
                     scan_id=scan.id,
                     user_id=uid,
                     termino=m.get("termino", ""),
+                    juzgado=m.get("juzgado", ""),
                     pagina=int(m.get("pagina", 1)),
                     contexto=m.get("contexto", ""),
                     notificado=m.get("notificado", False)
@@ -738,6 +754,19 @@ def get_all_active_users_data() -> List[dict]:
 
 def init_db():
     Base.metadata.create_all(engine)
+    # Verificación y migración automática de columna juzgado
+    try:
+        with engine.connect() as conn:
+            if DATABASE_URL.startswith("sqlite"):
+                c_cols = [r[1] for r in conn.execute(sa_text("PRAGMA table_info(criteria)")).fetchall()]
+                if "juzgado" not in c_cols:
+                    conn.execute(sa_text("ALTER TABLE criteria ADD COLUMN juzgado VARCHAR(256) DEFAULT 'Todos'"))
+                m_cols = [r[1] for r in conn.execute(sa_text("PRAGMA table_info(user_matches)")).fetchall()]
+                if "juzgado" not in m_cols:
+                    conn.execute(sa_text("ALTER TABLE user_matches ADD COLUMN juzgado VARCHAR(256)"))
+                conn.commit()
+    except Exception as e:
+        print(f"Nota en verificación de esquema DB: {e}")
     print("📦 Base de datos relacional SQLite inicializada con éxito (lexmonitor.db).")
 
 if __name__ == "__main__":

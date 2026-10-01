@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import JuzgadoSelector from '../../components/ui/JuzgadoSelector';
 
 export default function ConsultaView() {
   const { authFetch } = useAuth();
@@ -37,8 +38,8 @@ export default function ConsultaView() {
   const [scanResult, setScanResult] = useState(selectedReport || null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Estados para gestión de criterios
-  const [nuevoTipo, setNuevoTipo] = useState('Expediente');
+  // Estados para gestión de criterios con selección de juzgado
+  const [nuevoJuzgado, setNuevoJuzgado] = useState('Todos los Juzgados');
   const [nuevoValor, setNuevoValor] = useState('');
   const [submittingCriteria, setSubmittingCriteria] = useState(false);
   const [criteriaError, setCriteriaError] = useState('');
@@ -59,6 +60,7 @@ export default function ConsultaView() {
     : (appData?.keywords || []).map((k, i) => ({ 
         id: i, 
         valor: k, 
+        juzgado: 'Todos los Juzgados',
         tipo: k.includes('/') ? 'Expediente' : 'Nombre' 
       }));
 
@@ -75,7 +77,10 @@ export default function ConsultaView() {
       const res = await authFetch('/api/keywords', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword: valorLimpio, tipo: nuevoTipo })
+        body: JSON.stringify({ 
+          keyword: valorLimpio, 
+          juzgado: nuevoJuzgado || 'Todos los Juzgados'
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al guardar criterio');
@@ -90,12 +95,12 @@ export default function ConsultaView() {
   };
 
   // Eliminar criterio
-  const handleRemoveCriteria = async (kw) => {
+  const handleRemoveCriteria = async (kw, id) => {
     try {
       const res = await authFetch('/api/keywords', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyword: kw })
+        body: JSON.stringify({ keyword: kw, id })
       });
       if (res.ok) {
         await refreshData();
@@ -272,35 +277,27 @@ export default function ConsultaView() {
 
         {showCriteriaPanel && (
           <div className="p-6">
-            {/* Formulario rápido para añadir criterio */}
+            {/* Formulario rápido para añadir criterio con selección de Juzgado */}
             <form onSubmit={handleAddCriteria} className="flex flex-col sm:flex-row gap-3 mb-5">
-              <select 
-                value={nuevoTipo}
-                onChange={(e) => setNuevoTipo(e.target.value)}
-                className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
-              >
-                <option value="Expediente">Expediente</option>
-                <option value="Nombre">Nombre</option>
-                <option value="Empresa">Empresa</option>
-              </select>
+              <JuzgadoSelector 
+                value={nuevoJuzgado}
+                onChange={setNuevoJuzgado}
+                className="w-full sm:w-80 md:w-96 shrink-0"
+              />
 
               <input 
                 type="text" 
-                placeholder={
-                  nuevoTipo === 'Expediente' ? 'Ej. 800/2026 o 1250/2025' :
-                  nuevoTipo === 'Nombre' ? 'Ej. Eduardo Alexander Canto' :
-                  'Ej. Constructora Maya S.A.'
-                }
+                placeholder="Número de expediente o frase exacta (ej. 69/2026)"
                 value={nuevoValor}
                 onChange={(e) => setNuevoValor(e.target.value)}
-                className="flex-1 px-4 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
                 disabled={submittingCriteria}
               />
 
               <button 
                 type="submit"
                 disabled={submittingCriteria || !nuevoValor.trim()}
-                className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 <span>{submittingCriteria ? 'Guardando...' : 'Agregar'}</span>
@@ -313,29 +310,37 @@ export default function ConsultaView() {
               </div>
             )}
 
-            {/* Listado de Criterios en formato de Chips / Tags */}
+            {/* Listado de Criterios en formato de Chips / Cards */}
             {criteriaList.length > 0 ? (
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="flex flex-wrap gap-2.5 pt-1">
                 {criteriaList.map((c, index) => {
-                  const tipo = c.tipo || (c.valor && c.valor.includes('/') ? 'Expediente' : 'Nombre');
+                  const juzgadoLabel = c.juzgado && c.juzgado !== 'Todos' && c.juzgado !== 'Todos los Juzgados'
+                    ? c.juzgado
+                    : 'Cualquier Juzgado';
+                  const isEspecifico = juzgadoLabel !== 'Cualquier Juzgado';
+
                   return (
                     <div 
                       key={c.id || index}
-                      className="group flex items-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/90 rounded-xl px-3 py-1.5 transition-all shadow-2xs"
+                      className="group flex items-center gap-2 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/90 rounded-xl px-3 py-1.5 transition-all shadow-2xs"
                     >
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
-                        tipo === 'Expediente' ? 'bg-indigo-100 text-indigo-700' :
-                        tipo === 'Nombre' ? 'bg-emerald-100 text-emerald-700' :
-                        'bg-amber-100 text-amber-800'
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md tracking-wider flex items-center gap-1 ${
+                        isEspecifico 
+                          ? 'bg-blue-100 text-blue-900 border border-blue-200/70' 
+                          : 'bg-slate-200 text-slate-700'
                       }`}>
-                        {tipo}
+                        <span>🏛️</span>
+                        <span className="max-w-[180px] truncate">{juzgadoLabel}</span>
                       </span>
-                      <span className="font-mono text-xs font-semibold text-slate-800">
+
+                      <span className="font-mono text-xs font-bold text-slate-900">
                         {c.valor}
                       </span>
+
                       <button 
-                        onClick={() => handleRemoveCriteria(c.valor)}
-                        className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors"
+                        type="button"
+                        onClick={() => handleRemoveCriteria(c.valor, c.id)}
+                        className="text-slate-400 hover:text-red-500 p-0.5 rounded transition-colors ml-1"
                         title={`Eliminar ${c.valor}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -348,7 +353,7 @@ export default function ConsultaView() {
               <div className="text-center py-6 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                 <Bookmark className="w-6 h-6 text-slate-300 mx-auto mb-1" />
                 <p className="text-xs text-slate-500 font-medium">
-                  Aún no tienes criterios registrados. Agrega tus números de expediente o partes a vigilar arriba.
+                  Aún no tienes criterios registrados. Selecciona el juzgado y escribe el expediente a vigilar arriba.
                 </p>
               </div>
             )}
@@ -420,8 +425,11 @@ export default function ConsultaView() {
                     <div className="bg-blue-100 text-blue-800 font-mono text-xs sm:text-sm font-bold px-3 py-1 rounded-md border border-blue-200">
                       {termino.includes('/') ? `Exp. ${termino}` : termino}
                     </div>
-                    <span className="text-xs sm:text-sm font-semibold text-slate-700">
-                      Poder Judicial de Yucatán
+                    <span className="text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 flex items-center gap-1.5">
+                      <span>🏛️</span>
+                      <span className="truncate max-w-[240px] sm:max-w-md" title={item.juzgado || 'Poder Judicial de Yucatán'}>
+                        {item.juzgado || 'Poder Judicial de Yucatán'}
+                      </span>
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-slate-500 text-xs sm:text-sm font-medium">

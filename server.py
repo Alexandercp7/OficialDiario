@@ -6,6 +6,8 @@ import smtplib
 import ssl
 import threading
 import time
+import re
+import unicodedata
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -64,11 +66,144 @@ def descargar_diario(fecha, ruta_destino):
     except Exception as e:
         return False, f"Error de conexión: {str(e)}"
 
-def buscar_terminos_en_pdf(ruta_pdf, keywords):
+LISTA_JUZGADOS_YUCATAN = [
+    {"id": "todos", "nombre": "Todos los Juzgados", "label": "Todos los Juzgados (Cualquier Tribunal)", "shortName": "Cualquier Juzgado", "materia": "General", "sede": "Estatal"},
+    {"id": "tsj", "nombre": "Tribunal Superior de Justicia", "label": "NOTIFICACIONES DEL TRIBUNAL SUPERIOR DE JUSTICIA", "shortName": "Tribunal Superior de Justicia", "materia": "Segunda Instancia", "sede": "Mérida"},
+    {"id": "j1m", "nombre": "Juzgado Primero Mercantil", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO MERCANTIL", "shortName": "Juzgado 1° Mercantil", "materia": "Mercantil", "sede": "Mérida"},
+    {"id": "j2m", "nombre": "Juzgado Segundo Mercantil", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO MERCANTIL", "shortName": "Juzgado 2° Mercantil", "materia": "Mercantil", "sede": "Mérida"},
+    {"id": "j3m", "nombre": "Juzgado Tercero Mercantil", "label": "NOTIFICACIONES DEL JUZGADO TERCERO MERCANTIL", "shortName": "Juzgado 3° Mercantil", "materia": "Mercantil", "sede": "Mérida"},
+    {"id": "j4m", "nombre": "Juzgado Cuarto Mercantil", "label": "NOTIFICACIONES DEL JUZGADO CUARTO MERCANTIL", "shortName": "Juzgado 4° Mercantil", "materia": "Mercantil", "sede": "Mérida"},
+    {"id": "j1om", "nombre": "Juzgado Primero de Oralidad Mercantil", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO DE ORALIDAD MERCANTIL", "shortName": "Juzgado 1° Oralidad Mercantil", "materia": "Mercantil", "sede": "Mérida"},
+    {"id": "j1c", "nombre": "Juzgado Primero Civil", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO CIVIL", "shortName": "Juzgado 1° Civil", "materia": "Civil", "sede": "Mérida"},
+    {"id": "j2c", "nombre": "Juzgado Segundo Civil", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO CIVIL", "shortName": "Juzgado 2° Civil", "materia": "Civil", "sede": "Mérida"},
+    {"id": "j3c", "nombre": "Juzgado Tercero Civil", "label": "NOTIFICACIONES DEL JUZGADO TERCERO CIVIL", "shortName": "Juzgado 3° Civil", "materia": "Civil", "sede": "Mérida"},
+    {"id": "j4c", "nombre": "Juzgado Cuarto Civil", "label": "NOTIFICACIONES DEL JUZGADO CUARTO CIVIL", "shortName": "Juzgado 4° Civil", "materia": "Civil", "sede": "Mérida"},
+    {"id": "j5c", "nombre": "Juzgado Quinto Civil", "label": "NOTIFICACIONES DEL JUZGADO QUINTO CIVIL", "shortName": "Juzgado 5° Civil", "materia": "Civil", "sede": "Mérida"},
+    {"id": "j1f", "nombre": "Juzgado Primero de lo Familiar", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO DE LO FAMILIAR", "shortName": "Juzgado 1° de lo Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j1of", "nombre": "Juzgado Primero de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 1° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j2of", "nombre": "Juzgado Segundo de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 2° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j3of", "nombre": "Juzgado Tercero de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO TERCERO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 3° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j4of", "nombre": "Juzgado Cuarto de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO CUARTO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 4° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j5of", "nombre": "Juzgado Quinto de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO QUINTO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 5° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j6of", "nombre": "Juzgado Sexto en Materia de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO SEXTO EN MATERIA DE ORALIDAD FAMILIAR", "shortName": "Juzgado 6° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j7of", "nombre": "Juzgado Séptimo de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO SÉPTIMO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 7° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j8of", "nombre": "Juzgado Octavo de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO OCTAVO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 8° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j9of", "nombre": "Juzgado Noveno de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO NOVENO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 9° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j10of", "nombre": "Juzgado Décimo de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO DÉCIMO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 10° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j11of", "nombre": "Juzgado Décimoprimero de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO DÉCIMOPRIMERO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 11° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j12of", "nombre": "Juzgado Décimosegundo de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO DÉCIMOSEGUNDO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 12° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j13of", "nombre": "Juzgado Décimotercero de Oralidad Familiar", "label": "NOTIFICACIONES DEL JUZGADO DÉCIMOTERCERO DE ORALIDAD FAMILIAR", "shortName": "Juzgado 13° Oralidad Familiar", "materia": "Familiar", "sede": "Mérida"},
+    {"id": "j1es", "nombre": "Juzgado Primero de Ejecución de Sentencia del Estado", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO DE EJECUCIÓN DE SENTENCIA DEL ESTADO", "shortName": "Juzgado 1° Ejecución de Sentencia", "materia": "Ejecución de Sentencia", "sede": "Mérida"},
+    {"id": "j2es", "nombre": "Juzgado Segundo de Ejecución de Sentencia del Estado", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO DE EJECUCIÓN DE SENTENCIA DEL ESTADO", "shortName": "Juzgado 2° Ejecución de Sentencia", "materia": "Ejecución de Sentencia", "sede": "Mérida"},
+    {"id": "j1mxt1", "nombre": "Juzgado Primero Mixto de lo Civil, Familiar y Mercantil del Primer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO MIXTO DE LO CIVIL, FAMILIAR Y MERCANTIL DEL PRIMER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 1° Mixto (Progreso)", "materia": "Mixto", "sede": "Progreso"},
+    {"id": "j2mxt1", "nombre": "Juzgado Segundo Mixto de lo Civil y Mercantil del Primer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO MIXTO DE LO CIVIL Y MERCANTIL DEL PRIMER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 2° Mixto (Umán)", "materia": "Mixto", "sede": "Umán"},
+    {"id": "j3mxt1", "nombre": "Juzgado Tercero Mixto de lo Civil, Familiar y Mercantil del Primer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO TERCERO MIXTO DE LO CIVIL, FAMILIAR Y MERCANTIL DEL PRIMER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 3° Mixto (Motul)", "materia": "Mixto", "sede": "Motul"},
+    {"id": "j4mxt1", "nombre": "Juzgado Cuarto Mixto de lo Civil y Mercantil del Primer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO CUARTO MIXTO DE LO CIVIL Y MERCANTIL DEL PRIMER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 4° Mixto (Kanasín)", "materia": "Mixto", "sede": "Kanasín"},
+    {"id": "j5mxt1", "nombre": "Juzgado Quinto Mixto de lo Civil, Familiar y Mercantil del Primer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO QUINTO MIXTO DE LO CIVIL, FAMILIAR Y MERCANTIL DEL PRIMER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 5° Mixto (Izamal)", "materia": "Mixto", "sede": "Izamal"},
+    {"id": "j1feo1", "nombre": "Juzgado Primero Familiar de Procedimientos Escritos y Orales del Primer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO FAMILIAR DE PROCEDIMIENTOS ESCRITOS Y ORALES DEL PRIMER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 1° Familiar Escrito y Oral (Umán)", "materia": "Familiar", "sede": "Umán"},
+    {"id": "j2feo1", "nombre": "Juzgado Segundo Familiar de Procedimientos Escritos y Orales del Primer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO FAMILIAR DE PROCEDIMIENTOS ESCRITOS Y ORALES DEL PRIMER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 2° Familiar Escrito y Oral (Kanasín)", "materia": "Familiar", "sede": "Kanasín"},
+    {"id": "j1mxt2", "nombre": "Juzgado Primero Mixto de lo Civil, Familiar y Mercantil del Segundo Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO MIXTO DE LO CIVIL, FAMILIAR Y MERCANTIL DEL SEGUNDO DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 1° Mixto (Tekax)", "materia": "Mixto", "sede": "Tekax"},
+    {"id": "j2mxt2", "nombre": "Juzgado Segundo Mixto de lo Civil, Familiar y Mercantil del Segundo Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO MIXTO DE LO CIVIL, FAMILIAR Y MERCANTIL DEL SEGUNDO DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 2° Mixto (Ticul)", "materia": "Mixto", "sede": "Ticul"},
+    {"id": "j1mxt3", "nombre": "Juzgado Primero Mixto de lo Civil, Familiar y Mercantil del Tercer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO PRIMERO MIXTO DE LO CIVIL, FAMILIAR Y MERCANTIL DEL TERCER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 1° Mixto (Valladolid)", "materia": "Mixto", "sede": "Valladolid"},
+    {"id": "j2mxt3", "nombre": "Juzgado Segundo Mixto de lo Civil, Familiar y Mercantil del Tercer Departamento Judicial del Estado", "label": "NOTIFICACIONES DEL JUZGADO SEGUNDO MIXTO DE LO CIVIL, FAMILIAR Y MERCANTIL DEL TERCER DEPARTAMENTO JUDICIAL DEL ESTADO", "shortName": "Juzgado 2° Mixto (Tizimín)", "materia": "Mixto", "sede": "Tizimín"},
+]
+
+def normalize_court_name(name):
+    if not name:
+        return ""
+    n = unicodedata.normalize('NFKD', str(name))
+    n = ''.join(c for c in n if not unicodedata.combining(c))
+    n = re.sub(r'[^a-zA-Z0-9\s]', ' ', n).upper()
+    n = re.sub(r'\bNOTIFICACIONES\s+DEL?\s+', '', n)
+    return ' '.join(n.split())
+
+def court_matches(current_court, target_court):
+    if not target_court or target_court in ("Todos", "Todos los Juzgados", "Cualquier Juzgado"):
+        return True
+    if not current_court:
+        return False
+    c_norm = normalize_court_name(current_court)
+    t_norm = normalize_court_name(target_court)
+    if not t_norm or not c_norm:
+        return True
+    return (t_norm in c_norm) or (c_norm in t_norm) or (t_norm[:20] == c_norm[:20])
+
+def build_pdf_court_map(doc):
+    sumario_text = ''
+    for pno in range(1, min(6, len(doc))):
+        sumario_text += doc[pno].get_text('text') + '\n'
+
+    pj_match = re.search(r'PODER\s+JUDICIAL\s*(.*?)\s*(?:GOBIERNO\s+MUNICIPAL|PODER\s+LEGISLATIVO|$)', sumario_text, re.S | re.I)
+    court_list = []
+    if pj_match:
+        entries = re.findall(r'NOTIFICACIONES\s+(?:DEL?\s+)?(.+?)\s*\.{3,}\s*(\d+)', pj_match.group(1), re.S)
+        for name, page_str in entries:
+            clean_name = ' '.join(name.split())
+            court_list.append({
+                'nombre': clean_name,
+                'norm': normalize_court_name(clean_name),
+                'short_norm': normalize_court_name(clean_name).replace('JUZGADO ', ''),
+                'page': int(page_str)
+            })
+
+    if not court_list:
+        for item in LISTA_JUZGADOS_YUCATAN[1:]:
+            court_list.append({
+                'nombre': item['nombre'],
+                'norm': normalize_court_name(item['nombre']),
+                'short_norm': normalize_court_name(item['nombre']).replace('JUZGADO ', ''),
+                'page': 6
+            })
+
+    end_pj_page = len(doc)
+    gm_match = re.search(r'GOBIERNO\s+MUNICIPAL\s*.*?\.{3,}\s*(\d+)', sumario_text, re.S | re.I)
+    if gm_match:
+        end_pj_page = int(gm_match.group(1))
+
+    return court_list, end_pj_page
+
+def get_block_court(doc, pno, block_idx, courts, end_page):
+    page_num = pno + 1
+    if not courts or page_num < courts[0]['page'] or page_num >= end_page:
+        return None
+
+    active = [c for c in courts if c['page'] <= page_num]
+    if not active:
+        return None
+
+    courts_on_this_page = [c for c in courts if c['page'] == page_num]
+    if not courts_on_this_page:
+        return active[-1]['nombre']
+
+    blocks = doc[pno].get_text('blocks')
+    court_block_indices = []
+    for c in courts_on_this_page:
+        for i, b in enumerate(blocks):
+            bn = normalize_court_name(b[4])
+            if c['norm'][:20] in bn or c['short_norm'][:20] in bn:
+                court_block_indices.append((i, c['nombre']))
+                break
+    court_block_indices.sort(key=lambda x: x[0])
+
+    if not court_block_indices:
+        return active[-1]['nombre']
+
+    # Si el bloque está antes del primer encabezado de juzgado en esta página
+    if block_idx < court_block_indices[0][0]:
+        idx_prev = len(active) - len(courts_on_this_page) - 1
+        return active[idx_prev]['nombre'] if idx_prev >= 0 else court_block_indices[0][1]
+
+    curr = court_block_indices[0][1]
+    for idx_header, cname in court_block_indices:
+        if block_idx >= idx_header:
+            curr = cname
+    return curr
+
+def buscar_terminos_en_pdf(ruta_pdf, criteria_or_keywords):
     """
-    Busca términos simples y combinados en los párrafos/bloques del PDF.
-    Soporta términos compuestos como '800/2026 Alexander Canto':
-    detecta si todas las sub-palabras están dentro del mismo párrafo.
+    Busca términos o expedientes en los párrafos/bloques del PDF, diferenciando
+    con total precisión el juzgado o tribunal correspondiente.
+    Soporta lista de strings o lista de dicts de criterios (con 'valor' y 'juzgado').
     """
     coincidencias = []
     if not os.path.exists(ruta_pdf):
@@ -76,34 +211,78 @@ def buscar_terminos_en_pdf(ruta_pdf, keywords):
 
     try:
         documento = pymupdf.open(ruta_pdf)
+        courts, end_page = build_pdf_court_map(documento)
+
+        parsed_criteria = []
+        for item in criteria_or_keywords:
+            if isinstance(item, str):
+                val = item.strip()
+                tgt = "Todos"
+            elif isinstance(item, dict):
+                val = str(item.get("valor", "")).strip()
+                tgt = str(item.get("juzgado", "Todos") or "Todos").strip()
+            else:
+                continue
+
+            if not val:
+                continue
+
+            # Detectar si es número de expediente (ej. 69/2026, 00093/2025)
+            m_exp = re.match(r'^0*(\d+)/(\d{4})$', val)
+            if m_exp:
+                exp_regex = re.compile(rf'(?<!\d)0*{int(m_exp.group(1))}/{m_exp.group(2)}(?!\d)', re.I)
+            else:
+                exp_regex = None
+
+            parsed_criteria.append({
+                "valor": val,
+                "target_juzgado": tgt,
+                "exp_regex": exp_regex
+            })
+
         for num_pag in range(len(documento)):
+            page_num = num_pag + 1
+            if courts and (page_num < courts[0]["page"] or page_num >= end_page):
+                continue
+
             pagina = documento.load_page(num_pag)
             bloques = pagina.get_text("blocks")
 
-            for bloque in bloques:
+            for bidx, bloque in enumerate(bloques):
                 texto_raw = bloque[4].strip()
+                if not texto_raw:
+                    continue
                 texto_limpio = " ".join(texto_raw.split())
                 texto_lower = texto_limpio.lower()
 
-                for kw in keywords:
-                    kw_clean = kw.strip().lower()
-                    if not kw_clean:
+                current_court = get_block_court(documento, num_pag, bidx, courts, end_page)
+
+                for crit in parsed_criteria:
+                    # Validar si el bloque corresponde al juzgado buscado
+                    if not court_matches(current_court, crit["target_juzgado"]):
                         continue
 
                     match = False
-                    if kw_clean in texto_lower:
-                        match = True
-                    else:
-                        tokens = [t for t in kw_clean.split() if t]
-                        if len(tokens) > 1 and all(token in texto_lower for token in tokens):
+                    if crit["exp_regex"]:
+                        if crit["exp_regex"].search(texto_limpio):
                             match = True
+                    else:
+                        kw_clean = crit["valor"].strip().lower()
+                        if kw_clean in texto_lower:
+                            match = True
+                        else:
+                            tokens = [t for t in kw_clean.split() if t]
+                            if len(tokens) > 1 and all(token in texto_lower for token in tokens):
+                                match = True
 
                     if match:
                         coincidencias.append({
-                            "termino": kw,
-                            "pagina": num_pag + 1,
+                            "termino": crit["valor"],
+                            "juzgado": current_court or "Poder Judicial de Yucatán",
+                            "pagina": page_num,
                             "contexto": texto_limpio
                         })
+
         documento.close()
     except Exception as e:
         print(f"Error analizando PDF con PyMuPDF: {e}")
@@ -283,19 +462,24 @@ def notificar_usuario_coincidencias(user_dict, notif_cfg, fecha, coincidencias):
     texto_plano = f"Estimado(a) {user_name}:\n\n"
     texto_plano += f"Se han detectado {total} coincidencia(s) en el Diario Oficial de Yucatán para tus criterios seguidos ({fecha}):\n\n"
     for i, c in enumerate(coincidencias, 1):
-        texto_plano += f"{i}. Término: {c.get('termino')} (Pág. {c.get('pagina')})\n"
+        juz_txt = f" [{c.get('juzgado')}]" if c.get('juzgado') else ""
+        texto_plano += f"{i}. Término: {c.get('termino')}{juz_txt} (Pág. {c.get('pagina')})\n"
         texto_plano += f"   Extracto: {c.get('contexto')}\n\n"
     texto_plano += f"Descargar edición completa: {enlace_pdf}\n\nLexMonitor Yucatán"
 
     filas_html = ""
     for i, c in enumerate(coincidencias, 1):
         termino_esc = escape_tg_html(c.get('termino', ''))
+        juzgado_esc = escape_tg_html(c.get('juzgado', 'Poder Judicial de Yucatán'))
         contexto_esc = escape_tg_html(c.get('contexto', ''))
         filas_html += f"""
-        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #f59e0b; border-radius: 8px; padding: 14px; margin-bottom: 12px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-                <span style="background-color: #e0e7ff; color: #3730a3; font-weight: bold; font-family: monospace; font-size: 13px; padding: 3px 8px; border-radius: 4px;">
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid #2563eb; border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                <span style="background-color: #e0e7ff; color: #1e40af; font-weight: bold; font-family: monospace; font-size: 13px; padding: 3px 8px; border-radius: 4px;">
                     {termino_esc}
+                </span>
+                <span style="background-color: #ffffff; color: #0f172a; font-weight: 600; font-size: 11.5px; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+                    🏛️ {juzgado_esc}
                 </span>
                 <span style="color: #64748b; font-size: 12px; font-weight: 600;">Página {c.get('pagina', '?')}</span>
             </div>
@@ -357,7 +541,8 @@ def notificar_usuario_coincidencias(user_dict, notif_cfg, fecha, coincidencias):
                 f"Hola <b>{escape_tg_html(user_name)}</b>, se encontraron <b>{total}</b> coincidencia(s):\n"
             ]
             for i, c in enumerate(coincidencias[:5], 1):
-                msg_tg.append(f"<b>{i}. {escape_tg_html(c.get('termino'))}</b> (Pág. {c.get('pagina')})")
+                juz_txt = f" | 🏛️ {escape_tg_html(c.get('juzgado', ''))}" if c.get('juzgado') else ""
+                msg_tg.append(f"<b>{i}. {escape_tg_html(c.get('termino'))}</b>{juz_txt} (Pág. {c.get('pagina')})")
                 msg_tg.append(f"<i>{escape_tg_html(c.get('contexto')[:280])}...</i>\n")
             if total > 5:
                 msg_tg.append(f"<i>(+ {total - 5} acuerdos más en la plataforma)</i>\n")
@@ -429,9 +614,9 @@ def ejecutar_cotejo_general(fecha=None, triggered_by_user_id=None):
         for u_data in all_users:
             u_obj = u_data["user"]
             u_id = u_obj["id"]
-            u_keywords = [c["valor"] for c in u_data.get("criteria", [])]
-            if u_keywords:
-                u_coincidencias = buscar_terminos_en_pdf(archivo_local, u_keywords)
+            u_criteria = u_data.get("criteria", [])
+            if u_criteria:
+                u_coincidencias = buscar_terminos_en_pdf(archivo_local, u_criteria)
                 user_matches_map[u_id] = u_coincidencias
                 total_coincidencias_global += len(u_coincidencias)
             else:
@@ -922,6 +1107,13 @@ class DiarioHandler(BaseHTTPRequestHandler):
             return
 
 
+        if path == "/api/juzgados":
+            self.responder_json(200, {
+                "success": True,
+                "juzgados": LISTA_JUZGADOS_YUCATAN
+            })
+            return
+
         # ----------------- DATOS PERSONALIZADOS DEL USUARIO -----------------
         if path == "/api/data":
             user = self.get_current_user()
@@ -1085,12 +1277,15 @@ class DiarioHandler(BaseHTTPRequestHandler):
 
         if path == "/api/keywords":
             kw = body.get("keyword", "").strip()
-            tipo = body.get("tipo", "Expediente")
+            juzgado = body.get("juzgado", "Todos los Juzgados").strip()
+            tipo = body.get("tipo", "").strip()
+            if not tipo:
+                tipo = "Expediente" if ("/" in kw and any(ch.isdigit() for ch in kw)) else "Nombre / Frase"
             if not kw:
-                self.responder_json(400, {"error": "El término no puede estar vacío."})
+                self.responder_json(400, {"error": "El término o número de expediente no puede estar vacío."})
                 return
 
-            c_dict, err = database.add_user_criterion(user["id"], tipo, kw)
+            c_dict, err = database.add_user_criterion(user["id"], tipo, kw, juzgado=juzgado)
             if err:
                 self.responder_json(400, {"error": err})
                 return
@@ -1253,7 +1448,8 @@ class DiarioHandler(BaseHTTPRequestHandler):
 
         if path == "/api/keywords":
             kw = body.get("keyword", "").strip()
-            database.delete_user_criterion(user["id"], kw)
+            crit_id = body.get("id")
+            database.delete_user_criterion(user["id"], valor=kw, criterion_id=crit_id)
             criteria = database.get_user_criteria(user["id"])
             self.responder_json(200, {
                 "success": True,
