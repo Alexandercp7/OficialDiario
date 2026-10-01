@@ -37,7 +37,7 @@ export default function AuthPage() {
 
     setLoading(true);
     const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-    const payload = isRegister 
+    const payload = isRegister
       ? { name: name.trim(), email: email.trim(), password }
       : { email: email.trim(), password };
 
@@ -88,18 +88,16 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={() => { setIsRegister(false); setErrorMessage(''); }}
-              className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-                !isRegister ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${!isRegister ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                }`}
             >
               Iniciar Sesión
             </button>
             <button
               type="button"
               onClick={() => { setIsRegister(true); setErrorMessage(''); }}
-              className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-                isRegister ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex-1 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${isRegister ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+                }`}
             >
               Crear Cuenta
             </button>
