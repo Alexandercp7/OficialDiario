@@ -254,8 +254,8 @@ export default function ConsultaView() {
       </div>
 
       {/* Sección Integrada: Gestión de Criterios */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200/80 bg-slate-50/80 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 relative z-30">
+        <div className="px-6 py-4 border-b border-slate-200/80 bg-slate-50/80 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2.5">
             <SlidersHorizontal className="w-4 h-4 text-slate-600" />
             <h3 className="font-bold text-slate-900 text-sm sm:text-base">
@@ -276,13 +276,13 @@ export default function ConsultaView() {
         </div>
 
         {showCriteriaPanel && (
-          <div className="p-6">
+          <div className="p-6 rounded-b-2xl">
             {/* Formulario rápido para añadir criterio con selección de Juzgado */}
-            <form onSubmit={handleAddCriteria} className="flex flex-col sm:flex-row gap-3 mb-5">
+            <form onSubmit={handleAddCriteria} className="flex flex-col sm:flex-row gap-3 mb-5 relative z-40">
               <JuzgadoSelector 
                 value={nuevoJuzgado}
                 onChange={setNuevoJuzgado}
-                className="w-full sm:w-80 md:w-96 shrink-0"
+                className="w-full sm:w-80 md:w-96 shrink-0 relative"
               />
 
               <input 

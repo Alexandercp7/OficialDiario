@@ -76,12 +76,12 @@ export default function CriteriosView() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 overflow-hidden mb-8">
-        <div className="p-6 border-b border-slate-200/80 bg-slate-50/70">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/90 mb-8 relative z-30">
+        <div className="p-6 border-b border-slate-200/80 bg-slate-50/70 rounded-t-2xl relative z-40">
           <form onSubmit={handleAdd} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
               {/* Input 1: Juzgado Selector */}
-              <div className="md:col-span-6">
+              <div className="md:col-span-6 relative">
                 <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
                   <Building2 className="w-3.5 h-3.5 text-blue-600" />
                   1. Juzgado o Tribunal

@@ -226,7 +226,7 @@ export default function JuzgadoSelector({
 
       {/* Menú Desplegable con Filtro de Búsqueda */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 sm:min-w-[420px] max-w-full">
+        <div className="absolute left-0 top-full mt-1.5 z-[100] w-full sm:w-[480px] md:w-[540px] max-w-[calc(100vw-2rem)] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
           {/* Cabecera y Barra de Búsqueda en el Desplegable */}
           <div className="p-3 border-b border-slate-100 bg-slate-50/70">
             <div className="relative">
@@ -278,7 +278,7 @@ export default function JuzgadoSelector({
           {/* Lista de Juzgados */}
           <div 
             ref={listRef}
-            className="max-h-[300px] overflow-y-auto divide-y divide-slate-100/80 p-1.5 focus:outline-none"
+            className="max-h-[380px] overflow-y-auto divide-y divide-slate-100/80 p-2 focus:outline-none"
           >
             {filteredJuzgados.map((item, idx) => {
               const isSelected = item.id === 'todos' 
@@ -293,31 +293,31 @@ export default function JuzgadoSelector({
                   onMouseEnter={() => setHighlightedIndex(idx)}
                   className={`px-3 py-2.5 rounded-xl cursor-pointer transition-all flex items-center justify-between gap-3 ${
                     isSelected 
-                      ? 'bg-blue-50/90 text-blue-950 font-bold' 
+                      ? 'bg-blue-50 text-blue-950 font-bold border border-blue-200/60' 
                       : isHighlighted 
-                        ? 'bg-slate-100/90 text-slate-900' 
-                        : 'text-slate-700 hover:bg-slate-50'
+                        ? 'bg-slate-100 text-slate-950' 
+                        : 'text-slate-800 hover:bg-slate-50'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-xs sm:text-sm">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs sm:text-sm font-semibold leading-snug">
                         {item.nombre}
                       </span>
                       {item.materia && item.id !== 'todos' && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded border shrink-0 ${getMateriaBadgeColor(item.materia)}`}>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${getMateriaBadgeColor(item.materia)}`}>
                           {item.materia}
                         </span>
                       )}
                       {item.sede && item.sede !== 'Estatal' && item.sede !== 'Mérida' && (
-                        <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.2 rounded shrink-0 flex items-center gap-0.5">
+                        <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-0.5">
                           <MapPin className="w-2.5 h-2.5" />
                           {item.sede}
                         </span>
                       )}
                     </div>
                     {item.shortName && item.shortName !== item.nombre && (
-                      <p className="text-[11px] text-slate-400 mt-0.5 font-normal">
+                      <p className="text-[11px] text-slate-500 mt-0.5 font-normal">
                         {item.shortName}
                       </p>
                     )}
