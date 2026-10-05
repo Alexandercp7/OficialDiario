@@ -135,15 +135,16 @@ def ejecutar_cotejo_general(fecha=None, triggered_by_user_id=None):
             triggered_by_user_id=triggered_by_user_id
         )
 
-        # Notificar a CADA usuario con coincidencias en sus propios canales
+        # Notificar a CADA usuario en sus propios canales (tanto si hay acuerdos como si no se encontró nada)
         notificaciones_despachadas = []
         for u_data in all_users:
             u_obj = u_data["user"]
             u_id = u_obj["id"]
             u_notif_cfg = u_data.get("config", {})
+            u_criteria = u_data.get("criteria", [])
             u_matches = user_matches_map.get(u_id, [])
 
-            if u_matches:
+            if u_criteria or u_matches:
                 status_envio = notificar_usuario_coincidencias(u_obj, u_notif_cfg, fecha, u_matches)
                 notificaciones_despachadas.append({
                     "user_id": u_id,
@@ -167,7 +168,8 @@ def ejecutar_cotejo_general(fecha=None, triggered_by_user_id=None):
             "message": msg_exito,
             "mensaje": msg_exito,
             "total_users_checked": len(all_users),
-            "users_with_matches": len(notificaciones_despachadas),
+            "users_with_matches": len([n for n in notificaciones_despachadas if n["total_matches"] > 0]),
+            "total_notifications_sent": len(notificaciones_despachadas),
             "total_matches": total_coincidencias_global,
             "notifications": notificaciones_despachadas,
             "scan_record": scan_record,

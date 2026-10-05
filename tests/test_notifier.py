@@ -35,11 +35,19 @@ class TestNotifierModule(unittest.TestCase):
         self.assertIn("Falta bot_token", msg2)
 
     def test_notificar_usuario_coincidencias_vacio(self):
-        """Verifica respuesta cuando no hay coincidencias."""
-        user = {"id": 1, "name": "Abogado Test", "email": "test@despacho.com"}
-        cfg = {"channel": "email", "email": {"recipient_email": "test@despacho.com"}}
-        res = notificar_usuario_coincidencias(user, cfg, "2026-09-30", [])
-        self.assertEqual(res, "Sin coincidencias para notificar.")
+        """Verifica que se envíe mensaje informativo cuando no hay acuerdos encontrados."""
+        from unittest.mock import patch
+        user = {"id": 1, "name": "Abogado Test", "email": "test@despacho.com", "telegram_chat_id": "123456"}
+        cfg = {"channel": "telegram"}
+
+        with patch("database.get_system_setting", return_value="123456:BOT_TOKEN"), \
+             patch("backend.notifier.enviar_mensaje_telegram", return_value=(True, "Enviado con éxito")) as mock_tg:
+            res = notificar_usuario_coincidencias(user, cfg, "2026-09-30", [])
+            self.assertIn("Telegram: Enviado con éxito", res)
+            mock_tg.assert_called_once()
+            called_msg = mock_tg.call_args[0][2]
+            self.assertIn("no ha encontrado acuerdos ni publicaciones", called_msg)
+            self.assertIn("Abogado Test", called_msg)
 
     def test_notificar_usuario_canal_desactivado(self):
         """Verifica respuesta cuando el usuario tiene notificaciones apagadas."""

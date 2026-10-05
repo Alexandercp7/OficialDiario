@@ -174,7 +174,12 @@ class TelegramBotManager:
                     fecha = h.get("fecha", "")
                     coincidencias = h.get("coincidencias", [])
                     if not coincidencias:
-                        resp = f"📅 <b>Diario Oficial ({fecha})</b>\nNo se encontraron acuerdos para tus criterios seguidos."
+                        resp = (
+                            f"📅 <b>Diario Oficial ({fecha})</b>\n\n"
+                            f"🔍 El bot revisó la edición de hoy y <b>no ha encontrado nada</b> publicado "
+                            f"para tus criterios o expedientes monitoreados.\n\n"
+                            f"✅ Todo se encuentra al día y en orden."
+                        )
                     else:
                         total = len(coincidencias)
                         lines = [f"🏛️ <b>Tus acuerdos ({fecha})</b>\nSe encontraron <b>{total}</b> coincidencia(s):\n"]
@@ -218,7 +223,49 @@ class TelegramBotManager:
                             lines.append(f"<i>{escape_tg_html(m['contexto'][:240])}...</i>\n")
                         resp = "\n".join(lines)
                     else:
-                        resp = f"🔍 No se encontraron publicaciones para '<b>{escape_tg_html(termino)}</b>'."
+                        resp = (
+                            f"🔍 <b>Sin resultados</b>\n\n"
+                            f"El bot revisó el Diario Oficial y <b>no ha encontrado nada</b> "
+                            f"para '<b>{escape_tg_html(termino)}</b>'."
+                        )
+            enviar_mensaje_telegram(token, chat_id, resp)
+
+        # Búsqueda directa si el usuario envió un término o expediente (ej. 800/2026) sin prefijo /
+        elif not text.startswith("/"):
+            termino = text.strip()
+            hoy = database.fecha_hoy_merida()
+            pdf_path = os.path.join(BASE_DIR, f"{hoy}_1.pdf")
+            if not os.path.exists(pdf_path):
+                pdfs = [f for f in os.listdir(BASE_DIR) if f.endswith(".pdf")]
+                if pdfs:
+                    pdfs.sort(reverse=True)
+                    pdf_path = os.path.join(BASE_DIR, pdfs[0])
+
+            if os.path.exists(pdf_path):
+                matches = buscar_terminos_en_pdf(pdf_path, [termino])
+                if matches:
+                    lines = [
+                        f"🔍 <b>Resultados para:</b> <code>{escape_tg_html(termino)}</code>",
+                        f"Coincidencias encontradas: <b>{len(matches)}</b>\n"
+                    ]
+                    for m in matches[:5]:
+                        lines.append(f"• <b>Pág. {m['pagina']}:</b>")
+                        lines.append(f"<i>{escape_tg_html(m['contexto'][:240])}...</i>\n")
+                    resp = "\n".join(lines)
+                else:
+                    resp = (
+                        f"🔍 <b>Sin resultados</b>\n\n"
+                        f"El bot revisó el Diario Oficial y <b>no ha encontrado nada</b> "
+                        f"para '<b>{escape_tg_html(termino)}</b>'.\n\n"
+                        f"Usa <code>/avisos</code> para ver tus expedientes o <code>/ayuda</code> para ver comandos."
+                    )
+            else:
+                resp = (
+                    f"Hola <b>{first_name}</b>. Puedes usar:\n"
+                    f"• <code>/vincular tu_correo@ejemplo.com</code>\n"
+                    f"• <code>/avisos</code> para ver tus acuerdos\n"
+                    f"• <code>/buscar 800/2026</code> para buscar en la edición actual"
+                )
             enviar_mensaje_telegram(token, chat_id, resp)
 
         else:

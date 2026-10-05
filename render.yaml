@@ -1,0 +1,44 @@
+# ==========================================================
+# 🏛️ LexMonitor Yucatán — Render Blueprint (render.yaml)
+# Despliegue automático de Web Service + PostgreSQL en Render
+# ==========================================================
+
+services:
+  - type: web
+    name: lexmonitor-yucatan
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lexmonitor-db
+          property: connectionString
+      - key: CRON_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: DEFAULT_SMTP_SENDER_EMAIL
+        sync: false
+      - key: DEFAULT_SMTP_SENDER_PASSWORD
+        sync: false
+      - key: DEFAULT_SMTP_HOST
+        value: smtp.gmail.com
+      - key: DEFAULT_SMTP_PORT
+        value: 465
+      - key: DEFAULT_SMTP_USE_SSL
+        value: true
+
+databases:
+  - name: lexmonitor-db
+    databaseName: lexmonitordb
+    user: lexmonitor
+    plan: free
+    region: oregon

@@ -157,21 +157,101 @@ def enviar_mensaje_telegram(bot_token, chat_id, mensaje):
 
 def notificar_usuario_coincidencias(user_dict, notif_cfg, fecha, coincidencias):
     """
-    Envía notificaciones personalizadas EXCLUSIVAMENTE a este usuario con sus coincidencias.
+    Envía notificaciones personalizadas EXCLUSIVAMENTE a este usuario.
+    - Si se encontraron coincidencias: envía el desglose detallado con página y extracto.
+    - Si NO se encontró nada: envía un mensaje confirmando que se revisó la edición y no se halló nada.
     """
-    if not coincidencias:
-        return "Sin coincidencias para notificar."
-
     canal = notif_cfg.get("channel", "email")
     if canal == "none":
         return "Notificaciones desactivadas para este usuario."
 
     año = fecha.split("-")[0]
     enlace_pdf = f"https://www.yucatan.gob.mx/docs/diario_oficial/diarios/{año}/{fecha}_1.pdf"
-    total = len(coincidencias)
     user_name = user_dict.get("name", "Usuario")
+    res_mensajes = []
 
-    # Contenido de correo
+    # 1. CASO: NO SE ENCONTRÓ NADA (0 coincidencias)
+    if not coincidencias:
+        asunto = f"⚖️ LexMonitor Yucatán: Sin acuerdos publicados en Diario Oficial ({fecha})"
+        texto_plano = (
+            f"Estimado(a) {user_name}:\n\n"
+            f"El motor de vigilancia jurídica ha concluido la revisión de la edición del Diario Oficial de Yucatán ({fecha}).\n\n"
+            f"🔍 Te informamos que NO se detectaron acuerdos ni publicaciones correspondientes a los expedientes y términos bajo tu seguimiento.\n\n"
+            f"✅ Todo se encuentra al día y sin novedades procesales hoy.\n\n"
+            f"Descargar edición completa: {enlace_pdf}\n\nLexMonitor Yucatán"
+        )
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"></head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; padding: 20px; margin: 0;">
+            <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                <div style="background-color: #0f172a; padding: 22px 24px; border-bottom: 3px solid #10b981;">
+                    <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: bold;">
+                        LexMonitor <span style="color: #f59e0b;">Yucatán</span>
+                    </h1>
+                    <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 12px;">Vigilancia Legal Automatizada &bull; {fecha}</p>
+                </div>
+                <div style="padding: 24px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <span style="display: inline-block; background-color: #ecfdf5; color: #059669; font-size: 28px; border-radius: 50%; width: 52px; height: 52px; line-height: 52px; border: 2px solid #a7f3d0;">✓</span>
+                        <h2 style="color: #0f172a; font-size: 18px; margin: 12px 0 4px 0;">Sin acuerdos publicados hoy</h2>
+                        <p style="color: #64748b; font-size: 13px; margin: 0;">Edición correspondiente al {fecha}</p>
+                    </div>
+                    <p style="color: #1e293b; font-size: 15px; margin-top: 0;">
+                        Estimado(a) <strong>{user_name}</strong>:
+                    </p>
+                    <p style="color: #475569; font-size: 14px; line-height: 1.6;">
+                        El bot y motor de vigilancia revisó minuciosamente la edición de hoy del Diario Oficial del Estado y <strong>no se ha encontrado ninguna publicación o acuerdo</strong> para tus expedientes y criterios monitoreados.
+                    </p>
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin: 18px 0; color: #166534; font-size: 13px;">
+                        🛡️ Tus asuntos se encuentran al corriente y sin novedades procesales en la publicación oficial de hoy.
+                    </div>
+                    <div style="text-align: center; margin-top: 24px;">
+                        <a href="{enlace_pdf}" style="background-color: #0f172a; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; font-size: 13px; display: inline-block;">
+                            Consultar Diario Oficial Completo
+                        </a>
+                    </div>
+                </div>
+                <div style="background-color: #f8fafc; padding: 14px 24px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8;">
+                    Este correo fue generado automáticamente por tu instancia de LexMonitor Yucatán.
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        msg_tg_vacio = (
+            f"⚖️ <b>LexMonitor Yucatán ({fecha})</b>\n\n"
+            f"Hola <b>{escape_tg_html(user_name)}</b>.\n\n"
+            f"🔍 El bot revisó la edición de hoy del Diario Oficial del Estado y <b>no ha encontrado acuerdos ni publicaciones</b> para tus expedientes o términos registrados.\n\n"
+            f"✅ Todo se encuentra al día y sin novedades procesales hoy.\n\n"
+            f"🔗 <a href='{enlace_pdf}'>Ver Diario Oficial</a>"
+        )
+
+        # Enviar correo si canal incluye email
+        if canal in ("email", "both", "all"):
+            email_cfg = dict(notif_cfg.get("email", {}))
+            if not email_cfg.get("recipient_email"):
+                email_cfg["recipient_email"] = user_dict.get("email", "")
+            ok, msg_e = enviar_notificacion_email(email_cfg, asunto, texto_plano, html)
+            res_mensajes.append(f"Email: {msg_e}")
+
+        # Enviar Telegram si canal incluye telegram o usuario tiene chat_id
+        if canal in ("telegram", "both", "all") or (canal != "none" and user_dict.get("telegram_chat_id")):
+            bot_token = database.get_system_setting("telegram_bot_token")
+            tg_chat_id = user_dict.get("telegram_chat_id")
+            if bot_token and tg_chat_id:
+                ok_t, msg_t = enviar_mensaje_telegram(bot_token, tg_chat_id, msg_tg_vacio)
+                res_mensajes.append(f"Telegram: {msg_t}")
+            elif not tg_chat_id and canal in ("telegram", "both", "all"):
+                lcode = user_dict.get("link_code") or user_dict.get("email", "")
+                res_mensajes.append(f"Telegram: Cuenta no vinculada (usa /vincular {lcode}).")
+
+        return " | ".join(res_mensajes) if res_mensajes else "Procesado (sin coincidencias)"
+
+    # 2. CASO: SÍ SE ENCONTRARON COINCIDENCIAS
+    total = len(coincidencias)
     asunto = f"⚖️ Alerta LexMonitor: {total} acuerdo(s) publicado(s) en Diario Oficial ({fecha})"
     
     texto_plano = f"Estimado(a) {user_name}:\n\n"
@@ -236,8 +316,6 @@ def notificar_usuario_coincidencias(user_dict, notif_cfg, fecha, coincidencias):
     </html>
     """
 
-    res_mensajes = []
-
     # Enviar por correo si está activo
     if canal in ("email", "both", "all"):
         email_cfg = dict(notif_cfg.get("email", {}))
@@ -247,7 +325,7 @@ def notificar_usuario_coincidencias(user_dict, notif_cfg, fecha, coincidencias):
         res_mensajes.append(f"Email: {msg_e}")
 
     # Enviar por Telegram si está activo y tiene chat_id
-    if canal in ("telegram", "both", "all"):
+    if canal in ("telegram", "both", "all") or (canal != "none" and user_dict.get("telegram_chat_id")):
         bot_token = database.get_system_setting("telegram_bot_token")
         tg_chat_id = user_dict.get("telegram_chat_id")
         if bot_token and tg_chat_id:
@@ -265,7 +343,7 @@ def notificar_usuario_coincidencias(user_dict, notif_cfg, fecha, coincidencias):
 
             ok_t, msg_t = enviar_mensaje_telegram(bot_token, tg_chat_id, "\n".join(msg_tg))
             res_mensajes.append(f"Telegram: {msg_t}")
-        elif not tg_chat_id:
+        elif not tg_chat_id and canal in ("telegram", "both", "all"):
             lcode = user_dict.get("link_code") or user_dict.get("email", "")
             res_mensajes.append(f"Telegram: Cuenta no vinculada (usa /vincular {lcode}).")
 

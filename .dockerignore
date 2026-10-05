@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+lexmonitor.db
+tests
+scratch
+benchmark.py
+run_tests.py
+*.pdf
+temp_*.pdf
